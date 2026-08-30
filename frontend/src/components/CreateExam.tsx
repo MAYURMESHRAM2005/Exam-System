@@ -246,7 +246,9 @@ function validateCsvRow(
   headerMap: Record<string, number>
 ): { question: QuestionDraft | null; error: string | null } {
   const get = (key: string) => {
-    const idx = headerMap[key];
+    // Try exact key, then lowercase version for case-insensitive matching
+    let idx = headerMap[key];
+    if (idx === undefined) idx = headerMap[key.toLowerCase()];
     return idx !== undefined && idx < cells.length ? cells[idx].trim() : '';
   };
 
@@ -377,30 +379,79 @@ const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
       }
 
       const headerRow = rows[0];
+      const rawHeaders = headerRow.map((h) => h.replace(/^\uFEFF/, '').trim());
+      const cleanHeaders = rawHeaders.map((h) => h.toLowerCase());
+
+      // Build header map with exact match first, then fuzzy fallback
       const headerMap: Record<string, number> = {};
-      headerRow.forEach((h, i) => {
-        // Strip BOM, whitespace, and lowercase for robust matching
-        const clean = h.replace(/^\uFEFF/, '').trim().toLowerCase();
-        if (clean) headerMap[clean] = i;
+      cleanHeaders.forEach((h, i) => {
+        if (h) headerMap[h] = i;
       });
 
-      // Validate required headers
-      const requiredHeaders = ['questiontext', 'type', 'correctanswer', 'marks'];
-      const missingHeaders = requiredHeaders.filter((h) => !(h in headerMap));
-      if (missingHeaders.length > 0) {
-        const detectedHeaders = headerRow.map((h) => h.replace(/^\uFEFF/, '').trim()).join(', ');
+      // Flexible header matching: maps CSV column names to expected field names
+      // Handles truncated headers ("questionT"), extra spaces, etc.
+      const HEADER_ALIASES: Record<string, string[]> = {
+        'questiontext': ['questiontext', 'question', 'question_text', 'questiontxt', 'questiont'],
+        'type': ['type', 'questiontype', 'qtype'],
+        'correctanswer': ['correctanswer', 'correct_answer', 'correctans', 'correcta', 'answer', 'correct'],
+        'marks': ['marks', 'mark', 'score', 'points'],
+        'optiona': ['optiona', 'option_a', 'opta', 'a'],
+        'optionb': ['optionb', 'option_b', 'optb', 'b'],
+        'optionc': ['optionc', 'option_c', 'optc', 'c'],
+        'optiond': ['optiond', 'option_d', 'optd', 'd'],
+      };
+
+      // Try to find each required header using aliases
+      function findHeaderIndex(targetField: string): number | null {
+        const aliases = HEADER_ALIASES[targetField] || [targetField];
+        // Exact match first
+        for (const alias of aliases) {
+          if (alias in headerMap) return headerMap[alias];
+        }
+        // Fuzzy: find a header that starts with or contains the target
+        for (let i = 0; i < cleanHeaders.length; i++) {
+          const h = cleanHeaders[i];
+          if (!h) continue;
+          for (const alias of aliases) {
+            if (h.startsWith(alias) || alias.startsWith(h) || h.includes(alias) || alias.includes(h)) {
+              return i;
+            }
+          }
+        }
+        return null;
+      }
+
+      // Map each expected field to a column index
+      const resolvedMap: Record<string, number> = {};
+      const requiredFields = ['questiontext', 'type', 'correctanswer', 'marks'];
+      const missingFields: string[] = [];
+
+      for (const field of requiredFields) {
+        const idx = findHeaderIndex(field);
+        if (idx !== null) {
+          resolvedMap[field] = idx;
+        } else {
+          missingFields.push(field);
+        }
+      }
+
+      if (missingFields.length > 0) {
+        const detectedHeaders = rawHeaders.join(', ') || '(none)';
         setCsvImportResult({
           successCount: 0,
           errorCount: 0,
           errors: [
-            `Missing required columns: ${missingHeaders.join(', ')}.`,
-            `Expected: ${CSV_HEADERS.join(', ')}`,
-            `Detected headers: ${detectedHeaders || '(none)'}`,
+            `Could not find columns: ${missingFields.join(', ')}.`,
+            `Your headers: ${detectedHeaders}`,
+            `Required: questionText, type, correctAnswer, marks`,
           ],
           questions: [],
         });
         return;
       }
+
+      // Use resolvedMap instead of headerMap for row validation
+      Object.assign(headerMap, resolvedMap);
 
       const importedQuestions: QuestionDraft[] = [];
       const errors: string[] = [];
