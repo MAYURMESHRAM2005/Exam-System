@@ -133,10 +133,12 @@ const calculateProfileCompletion = (user) => {
    still-pending OTP isn't left stranded.
 ========================================================= */
 exports.register = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
-  const allowedPublicRoles = ["student", "instructor"];
-  const finalRole = allowedPublicRoles.includes(role) ? role : "student";
+  // Public registration always creates student accounts.
+  // Instructor accounts are managed separately and cannot be
+  // created through the public signup endpoint.
+  const finalRole = "student";
 
   const userExists = await User.findOne({ email });
   if (userExists) {
@@ -315,8 +317,9 @@ exports.googleAuth = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  const allowedPublicRoles = ["student", "instructor"];
-  const requestedRole = allowedPublicRoles.includes(role) ? role : "student";
+  // Public Google sign-in always creates student accounts.
+  // Instructor accounts exist only through pre-seeded database records.
+  const requestedRole = "student";
 
   let user = await User.findOne({ googleId: payload.sub }).select(
     "+googleId"

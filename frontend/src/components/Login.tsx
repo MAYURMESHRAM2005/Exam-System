@@ -42,7 +42,6 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'instructor'>('student');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
@@ -52,7 +51,6 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
 
   const toggleMode = () => {
     setIsRegister((prev) => !prev);
-    setRole('student');
     setError(null);
   };
 
@@ -74,7 +72,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
       try {
         const data = await googleAuth({
           credential: response.credential,
-          role: isRegister ? role : undefined,
+          role: isRegister ? 'student' : undefined,
           rememberMe,
         });
         localStorage.setItem('token', data.token);
@@ -126,7 +124,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
       if (retryTimer) clearTimeout(retryTimer);
       window.google?.accounts.id.cancel();
     };
-  }, [isRegister, role, rememberMe, onLogin]);
+  }, [isRegister, rememberMe, onLogin]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -135,7 +133,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
 
     try {
       if (isRegister) {
-        const data = await registerUser({ name, email, password, role });
+        const data = await registerUser({ name, email, password, role: 'student' });
         localStorage.setItem('token', data.token);
         localStorage.setItem('name', data.name);
         onLogin(data.role, data.name);
@@ -175,7 +173,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
           <h2 className="text-2xl font-semibold text-slate-900 mb-6">
-            {isRegister ? 'Create Account' : 'Welcome Back'}
+            {isRegister ? 'Create Student Account' : 'Welcome Back'}
           </h2>
 
           {error && (
@@ -198,30 +196,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* Role Selection (Only for Register) */}
-            {isRegister && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  I am a
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['student', 'instructor'] as const).map(r => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                        role === r
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {r.charAt(0).toUpperCase() + r.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* Full Name (Only for Register) */}
             {isRegister && (

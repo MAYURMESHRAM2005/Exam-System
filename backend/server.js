@@ -109,6 +109,7 @@ app.use("/api/results", apiLimiter, require("./routes/resultRoutes")); // ✅ Re
 app.use("/api/proctor", apiLimiter, require("./routes/proctorRoutes")); // ✅ AI Proctoring Routes (Phase 1)
 app.use("/api/notifications", apiLimiter, require("./routes/notificationRoutes"));
 app.use("/api/reports", apiLimiter, require("./routes/reportRoutes"));
+app.use("/api/ai", apiLimiter, require("./routes/aiRoutes")); // AI question generation
 
 /* -------------------- Error Handling -------------------- */
 app.use(notFound);

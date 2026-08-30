@@ -1,5 +1,5 @@
 
-import { ArrowLeft, Check, Calendar, Users, Shield, FileText, Plus, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Calendar, Shield, FileText, Plus, Trash2, Loader2, Download, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type React from 'react';
 import { apiFetch } from '../services/httpClient';
@@ -51,6 +51,14 @@ export function CreateExam({ onBack, examId }: CreateExamProps) {
     marks: 5,
   },
 ]);
+
+  // --- AI Question Generation ---
+  const [aiCount, setAiCount] = useState('10');
+  const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSuccess, setAiSuccess] = useState<string | null>(null);
+  const [aiValidationErrors, setAiValidationErrors] = useState<string[]>([]);
 const handleAddQuestion = () => {
   setQuestions([
     ...questions,
@@ -166,49 +174,347 @@ useEffect(() => {
   loadExam();
 }, [examId]);
 
-// ✅ QUESTION BANK
-const questionBank = [
-  {
-    questionText: "What is React?",
-    options: ["Library", "Framework", "Language", "Tool"],
-    correctAnswer: "Library",
-    type: "mcq",
-    marks: 5,
-  },
-];
 
-// ✅ ADD FROM BANK
-const addFromBank = () => {
-  setQuestions([...questions, questionBank[0]]);
-};
 
-// ✅ IMPORT FILE
-const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+// ✅ CSV IMPORT
+interface CsvImportResult {
+  successCount: number;
+  errorCount: number;
+  errors: string[];
+  questions: QuestionDraft[];
+}
+
+const CSV_HEADERS = ['questionText', 'type', 'optionA', 'optionB', 'optionC', 'optionD', 'correctAnswer', 'marks'];
+const VALID_TYPES = ['mcq', 'msq', 'truefalse', 'descriptive', 'coding'];
+
+/** Parse a single CSV line respecting quoted fields */
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/** Parse raw CSV text into rows of trimmed cell values */
+function parseCsvText(text: string): string[][] {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  return lines
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .map((l) => parseCsvLine(l));
+}
+
+/** Validate a single row and return a QuestionDraft or an error string */
+function validateCsvRow(
+  cells: string[],
+  rowNum: number,
+  headerMap: Record<string, number>
+): { question: QuestionDraft | null; error: string | null } {
+  const get = (key: string) => {
+    const idx = headerMap[key];
+    return idx !== undefined && idx < cells.length ? cells[idx].trim() : '';
+  };
+
+  const questionText = get('questionText');
+  const type = (get('type') || 'mcq').toLowerCase().trim();
+  const optionA = get('optionA');
+  const optionB = get('optionB');
+  const optionC = get('optionC');
+  const optionD = get('optionD');
+  const correctAnswer = get('correctAnswer');
+  const marksStr = get('marks');
+
+  if (!questionText) {
+    return { question: null, error: `Row ${rowNum}: questionText is empty.` };
+  }
+
+  if (!VALID_TYPES.includes(type)) {
+    return {
+      question: null,
+      error: `Row ${rowNum}: invalid type "${type}". Must be one of: ${VALID_TYPES.join(', ')}`,
+    };
+  }
+
+  const marks = Number(marksStr);
+  if (!marksStr || isNaN(marks) || marks <= 0) {
+    return { question: null, error: `Row ${rowNum}: marks must be a positive number (got "${marksStr}").` };
+  }
+
+  if (type === 'descriptive' || type === 'coding') {
+    return {
+      question: {
+        questionText,
+        type,
+        options: [],
+        correctAnswer: '',
+        marks,
+      },
+      error: null,
+    };
+  }
+
+  if (type === 'truefalse') {
+    const validAnswers = ['true', 'false'];
+    const ca = correctAnswer.toLowerCase();
+    if (!ca || !validAnswers.includes(ca)) {
+      return {
+        question: null,
+        error: `Row ${rowNum}: correctAnswer for true/false must be "True" or "False" (got "${correctAnswer}").`,
+      };
+    }
+    return {
+      question: {
+        questionText,
+        type,
+        options: ['True', 'False'],
+        correctAnswer: ca === 'true' ? 'True' : 'False',
+        marks,
+      },
+      error: null,
+    };
+  }
+
+  // mcq / msq
+  const options = [optionA, optionB, optionC, optionD].filter((o) => o.length > 0);
+  if (options.length < 2) {
+    return {
+      question: null,
+      error: `Row ${rowNum}: at least 2 options are required (found ${options.length}).`,
+    };
+  }
+
+  if (!correctAnswer) {
+    return { question: null, error: `Row ${rowNum}: correctAnswer is required.` };
+  }
+
+  if (type === 'mcq') {
+    if (!options.includes(correctAnswer)) {
+      return {
+        question: null,
+        error: `Row ${rowNum}: correctAnswer "${correctAnswer}" must match one of the options: ${options.join(' | ')}`,
+      };
+    }
+  } else if (type === 'msq') {
+    const answers = correctAnswer.split(',').map((a) => a.trim()).filter(Boolean);
+    const allValid = answers.every((a) => options.includes(a));
+    if (!allValid || answers.length === 0) {
+      return {
+        question: null,
+        error: `Row ${rowNum}: correctAnswer for MSQ must be comma-separated values from the options: ${options.join(' | ')}`,
+      };
+    }
+  }
+
+  return {
+    question: {
+      questionText,
+      type,
+      options,
+      correctAnswer,
+      marks,
+    },
+    error: null,
+  };
+}
+
+/** Full CSV import handler */
+const [csvImportResult, setCsvImportResult] = useState<CsvImportResult | null>(null);
+
+const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
+  setCsvImportResult(null);
+
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    setCsvImportResult({ successCount: 0, errorCount: 0, errors: ['Please select a .csv file.'], questions: [] });
+    return;
+  }
 
   const reader = new FileReader();
-
   reader.onload = (event) => {
     try {
       const text = event.target?.result as string;
+      const rows = parseCsvText(text);
 
-      const data = JSON.parse(text);
-
-      // ✅ Validate structure
-      if (!Array.isArray(data)) {
-        alert("Invalid format: should be array of questions");
+      if (rows.length < 2) {
+        setCsvImportResult({ successCount: 0, errorCount: 0, errors: ['CSV file must contain a header row and at least one question row.'], questions: [] });
         return;
       }
 
-      setQuestions(data);
+      const headerRow = rows[0];
+      const headerMap: Record<string, number> = {};
+      headerRow.forEach((h, i) => {
+        headerMap[h.toLowerCase().trim()] = i;
+      });
 
+      // Validate required headers
+      const requiredHeaders = ['questiontext', 'type', 'correctanswer', 'marks'];
+      const missingHeaders = requiredHeaders.filter((h) => !(h in headerMap));
+      if (missingHeaders.length > 0) {
+        setCsvImportResult({
+          successCount: 0,
+          errorCount: 0,
+          errors: [`Missing required columns: ${missingHeaders.join(', ')}. Expected headers: ${CSV_HEADERS.join(', ')}`],
+          questions: [],
+        });
+        return;
+      }
+
+      const importedQuestions: QuestionDraft[] = [];
+      const errors: string[] = [];
+      const dataRows = rows.slice(1);
+
+      dataRows.forEach((cells, idx) => {
+        const rowNum = idx + 2; // 1-indexed, +1 for header
+        // Skip completely empty rows
+        if (cells.every((c) => c === '')) return;
+
+        const result = validateCsvRow(cells, rowNum, headerMap);
+        if (result.error) {
+          errors.push(result.error);
+        } else if (result.question) {
+          importedQuestions.push(result.question);
+        }
+      });
+
+      const importResult: CsvImportResult = {
+        successCount: importedQuestions.length,
+        errorCount: errors.length,
+        errors,
+        questions: importedQuestions,
+      };
+
+      setCsvImportResult(importResult);
+
+      if (importedQuestions.length > 0) {
+        setQuestions(importedQuestions);
+      }
     } catch {
-      alert("Invalid JSON file");
+      setCsvImportResult({ successCount: 0, errorCount: 0, errors: ['Failed to parse CSV file. Please check the file format.'], questions: [] });
     }
   };
 
   reader.readAsText(file);
+  // Reset the input so the same file can be re-imported
+  e.target.value = '';
+};
+
+/** Download CSV template */
+const handleDownloadTemplate = () => {
+  // CSV-escape a cell: wrap in quotes if it contains commas, quotes, or newlines
+  const csvCell = (val: string) => {
+    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  };
+
+  const header = CSV_HEADERS.join(',');
+  const sampleRows = [
+    [csvCell('What is React?'), 'mcq', csvCell('Library'), csvCell('Framework'), csvCell('Language'), csvCell('Tool'), csvCell('Library'), '5'].join(','),
+    [csvCell('The sky is blue'), 'truefalse', csvCell('True'), csvCell('False'), '', '', csvCell('True'), '3'].join(','),
+    [csvCell('Describe OOP principles'), 'descriptive', '', '', '', '', '', '10'].join(','),
+    [csvCell('Which are JS frameworks?'), 'msq', csvCell('React'), csvCell('Angular'), csvCell('Django'), csvCell('Vue'), csvCell('React,Angular,Vue'), '8'].join(','),
+  ];
+  const csvContent = [header, ...sampleRows].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'exam_questions_template.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+// ✅ AI QUESTION GENERATION
+const handleAiGenerate = async () => {
+  const topic = examData.title.trim();
+  if (!topic) {
+    setAiError('Please enter an exam title first — it will be used as the topic for AI generation.');
+    return;
+  }
+
+  const count = parseInt(aiCount, 10);
+  if (isNaN(count) || count < 1 || count > 50) {
+    setAiError('Number of questions must be between 1 and 50.');
+    return;
+  }
+
+  setAiGenerating(true);
+  setAiError(null);
+  setAiSuccess(null);
+  setAiValidationErrors([]);
+
+  try {
+    const data = await apiFetch('/ai/generate-questions', {
+      method: 'POST',
+      body: JSON.stringify({
+        topic,
+        count,
+        difficulty: aiDifficulty,
+        marksPerQuestion: 5,
+      }),
+    });
+
+    const generated = data.questions || [];
+
+    if (generated.length === 0) {
+      setAiError('AI returned no valid questions. Please try again.');
+      return;
+    }
+
+    // Preserve existing non-empty questions; append new AI questions
+    const existingNonEmpty = questions.filter(
+      (q) => q.questionText.trim().length > 0
+    );
+    const merged = [...existingNonEmpty, ...generated];
+    setQuestions(merged);
+
+    setAiSuccess(
+      `Successfully generated ${generated.length} question(s)` +
+      (generated.length < count
+        ? ` (${count - generated.length} were filtered out due to validation issues)`
+        : '') +
+      (data.validationErrors?.length
+        ? ` — ${data.validationErrors.length} row(s) had validation errors.`
+        : '')
+    );
+
+    if (data.validationErrors?.length) {
+      setAiValidationErrors(data.validationErrors);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to generate questions. Please try again.';
+    setAiError(message);
+  } finally {
+    setAiGenerating(false);
+  }
 };
 
   const steps = [
@@ -548,71 +854,6 @@ const handlePublish = async () => {
                 </button>
               </div>
 
-              {/* <div className="space-y-4 mb-6"> */}
-                {/* Sample Question Card
-                <div className="border border-slate-200 rounded-lg p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
-                          Question 1
-                        </span>
-                        <select className="px-3 py-1 border border-slate-300 rounded text-sm">
-                          <option>Multiple Choice</option>
-                          <option>True/False</option>
-                          <option>Descriptive</option>
-                          <option>Coding</option>
-                        </select>
-                        <input
-                          type="number"
-                          placeholder="Marks"
-                          className="w-20 px-3 py-1 border border-slate-300 rounded text-sm"
-                          defaultValue="5"
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Enter your question here..."
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-3"
-                      />
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Option A"
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Option B"
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Option C"
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Option D"
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                        />
-                      </div>
-                    </div>
-                    <button className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-600">Correct Answer:</label>
-                    <select className="px-3 py-1 border border-slate-300 rounded text-sm">
-                      <option>Option A</option>
-                      <option>Option B</option>
-                      <option>Option C</option>
-                      <option>Option D</option>
-                    </select>
-                  </div>
-                </div>
-              </div> */}
   <div className="space-y-4 mb-6">
   {questions.map((q, index) => (
     <div key={index} className="border border-slate-200 rounded-lg p-5">
@@ -773,37 +1014,145 @@ const handlePublish = async () => {
   ))}
 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button onClick={addFromBank}  
-                 className="p-4 border-2 border-dashed border-slate-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-all text-center">
-                  <Plus className="w-6 h-6 mx-auto mb-2 text-slate-400" />
-                  <p className="text-sm font-medium text-slate-600">Add from Question Bank</p>
-                </button>
-                {/* <button onClick={handleFileImport} 
-                className="p-4 border-2 border-dashed border-slate-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-all text-center">
-                  <FileText className="w-6 h-6 mx-auto mb-2 text-slate-400" />
-                  <p className="text-sm font-medium text-slate-600">Import from File</p>
-                </button> */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label className="p-4 border-2 border-dashed border-slate-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-all text-center cursor-pointer">
   
   <FileText className="w-6 h-6 mx-auto mb-2 text-slate-400" />
   <p className="text-sm font-medium text-slate-600">
-    Import from File
+    Import Questions from CSV
   </p>
 
   {/* HIDDEN INPUT */}
   <input
     type="file"
-    accept=".json"
-    onChange={handleFileImport}
+    accept=".csv"
+    onChange={handleCsvImport}
     className="hidden"
   />
 </label>
-                <button className="p-4 border-2 border-dashed border-slate-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-all text-center">
-                  <Users className="w-6 h-6 mx-auto mb-2 text-slate-400" />
-                  <p className="text-sm font-medium text-slate-600">Auto-Generate with AI</p>
+                <button
+                  onClick={handleAiGenerate}
+                  disabled={aiGenerating}
+                  className="p-4 border-2 border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {aiGenerating ? (
+                    <Loader2 className="w-6 h-6 mx-auto mb-2 text-indigo-500 animate-spin" />
+                  ) : (
+                    <svg className="w-6 h-6 mx-auto mb-2 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  )}
+                  <p className="text-sm font-medium text-indigo-600">
+                    {aiGenerating ? 'Generating...' : 'Generate Questions with AI'}
+                  </p>
                 </button>
               </div>
+
+              {/* AI Generation Options */}
+              <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-5 h-5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  <span className="font-medium text-indigo-900">AI Question Generation</span>
+                </div>
+                <p className="text-sm text-indigo-700 mb-3">
+                  Uses the exam title above as the topic. Enter a clear, specific title for best results.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-indigo-800 mb-1">
+                      Number of Questions
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={aiCount}
+                      onChange={(e) => setAiCount(e.target.value)}
+                      className="w-full px-3 py-2 border border-indigo-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-indigo-800 mb-1">
+                      Difficulty
+                    </label>
+                    <select
+                      value={aiDifficulty}
+                      onChange={(e) => setAiDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+                      className="w-full px-3 py-2 border border-indigo-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Generation Results */}
+              {aiError && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-red-700">{aiError}</span>
+                </div>
+              )}
+              {aiSuccess && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-green-700">{aiSuccess}</span>
+                </div>
+              )}
+              {aiValidationErrors.length > 0 && (
+                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm font-medium text-amber-800 mb-1">Validation warnings:</p>
+                  <ul className="text-xs text-amber-700 space-y-0.5">
+                    {aiValidationErrors.slice(0, 5).map((err, i) => (
+                      <li key={i}>• {err}</li>
+                    ))}
+                    {aiValidationErrors.length > 5 && (
+                      <li>... and {aiValidationErrors.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Download CSV Template */}
+              <div className="mt-3">
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  Download CSV Template
+                </button>
+              </div>
+
+              {/* CSV Import Results */}
+              {csvImportResult && (
+                <div className="mt-4 p-4 rounded-lg border">
+                  {csvImportResult.errorCount > 0 ? (
+                    <div className="bg-amber-50 border-amber-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <span className="font-medium text-amber-800">
+                          Imported: {csvImportResult.successCount} question(s), {csvImportResult.errorCount} failed
+                        </span>
+                      </div>
+                      <ul className="text-sm text-amber-700 space-y-1 ml-7">
+                        {csvImportResult.errors.map((err, i) => (
+                          <li key={i}>• {err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="bg-green-50 border-green-200">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-5 h-5 text-green-600" />
+                        <span className="font-medium text-green-800">
+                          Successfully imported {csvImportResult.successCount} question(s)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1094,14 +1443,11 @@ const handlePublish = async () => {
                     Once published, students will be notified and the exam will appear in their dashboard.
                   </p>
                   <div className="flex gap-3">
-                    {/* <button className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
-                      Publish Now
-                    </button> */}
                     <button
-                   onClick={handlePublish}
-                   className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
-                    Publish Now
-                   </button>
+                      onClick={handlePublish}
+                      className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+                      Publish Now
+                    </button>
                     <button className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50">
                       Schedule for Later
                     </button>
@@ -1130,15 +1476,9 @@ const handlePublish = async () => {
               Next Step
             </button>
           ) : (
-            // <button
-            //   onClick={onBack}
-            //   className="px-8 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 shadow-lg hover:shadow-xl transition-all"
-            // >
-            //   Publish Exam
-            // </button>
             <button
-             onClick={handlePublish}
-             className="px-8 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 shadow-lg hover:shadow-xl transition-all">
+              onClick={handlePublish}
+              className="px-8 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 shadow-lg hover:shadow-xl transition-all">
              {isEditing ? 'Save Changes' : 'Publish Now'}
             </button>
           )}
