@@ -42,15 +42,7 @@ export function CreateExam({ onBack, examId }: CreateExamProps) {
     autoTerminateOnCameraDisabled: false,
     autoTerminateOnMicDisabled: false,
   });
-  const [questions, setQuestions] = useState([
-  {
-    questionText: "",
-    type: "mcq",
-    options: ["", "", "", ""],
-    correctAnswer: "",
-    marks: 5,
-  },
-]);
+  const [questions, setQuestions] = useState<QuestionDraft[]>([]);
 
   // --- AI Question Generation ---
   const [aiCount, setAiCount] = useState('10');
@@ -413,6 +405,7 @@ const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
       setCsvImportResult(importResult);
 
       if (importedQuestions.length > 0) {
+        // Replace all questions (including the initial empty one)
         setQuestions(importedQuestions);
       }
     } catch {
@@ -491,7 +484,7 @@ const handleAiGenerate = async () => {
 
     // Preserve existing non-empty questions; append new AI questions
     const existingNonEmpty = questions.filter(
-      (q) => q.questionText.trim().length > 0
+      (q) => q.questionText && q.questionText.trim().length > 0
     );
     const merged = [...existingNonEmpty, ...generated];
     setQuestions(merged);
@@ -855,6 +848,11 @@ const handlePublish = async () => {
               </div>
 
   <div className="space-y-4 mb-6">
+  {questions.length === 0 && (
+    <div className="text-center py-8 text-slate-400">
+      <p className="text-sm">No questions yet. Add questions manually, import from CSV, or generate with AI.</p>
+    </div>
+  )}
   {questions.map((q, index) => (
     <div key={index} className="border border-slate-200 rounded-lg p-5">
       
