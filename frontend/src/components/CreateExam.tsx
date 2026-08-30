@@ -325,20 +325,28 @@ function validateCsvRow(
   }
 
   if (type === 'truefalse') {
-    const validAnswers = ['true', 'false'];
-    const ca = correctAnswer.toLowerCase();
-    if (!ca || !validAnswers.includes(ca)) {
+    const tfOptions = ['True', 'False'];
+    const ca = correctAnswer.trim();
+    const caLower = ca.toLowerCase();
+
+    // Accept: "True"/"False", "true"/"false", "T"/"F", or letter labels "A"/"B"
+    let resolved = '';
+    if (caLower === 'true' || caLower === 't' || ca === 'A' || ca === 'a') {
+      resolved = 'True';
+    } else if (caLower === 'false' || caLower === 'f' || ca === 'B' || ca === 'b') {
+      resolved = 'False';
+    } else {
       return {
         question: null,
-        error: `Row ${rowNum}: correctAnswer for true/false must be "True" or "False" (got "${correctAnswer}").`,
+        error: `Row ${rowNum}: correctAnswer for true/false must be "True", "False", "A", or "B" (got "${correctAnswer}").`,
       };
     }
     return {
       question: {
         questionText,
         type,
-        options: ['True', 'False'],
-        correctAnswer: ca === 'true' ? 'True' : 'False',
+        options: tfOptions,
+        correctAnswer: resolved,
         marks,
       },
       error: null,
