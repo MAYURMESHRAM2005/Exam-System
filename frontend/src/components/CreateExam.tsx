@@ -325,23 +325,61 @@ function validateCsvRow(
   }
 
   if (type === 'mcq') {
+    // Support both full option text ("Router") and letter labels ("C" -> option index 2)
+    let resolvedAnswer = correctAnswer;
     if (!options.includes(correctAnswer)) {
-      return {
-        question: null,
-        error: `Row ${rowNum}: correctAnswer "${correctAnswer}" must match one of the options: ${options.join(' | ')}`,
-      };
+      // Try mapping letter label (A/B/C/D) to the corresponding option
+      const letterIndex = correctAnswer.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+      if (letterIndex >= 0 && letterIndex < options.length && correctAnswer.length === 1) {
+        resolvedAnswer = options[letterIndex];
+      } else {
+        return {
+          question: null,
+          error: `Row ${rowNum}: correctAnswer "${correctAnswer}" does not match any option. Use the full option text or a letter (A-${String.fromCharCode(65 + options.length - 1)}).`,
+        };
+      }
     }
+    // Use the resolved answer (full option text)
+    return {
+      question: {
+        questionText,
+        type,
+        options,
+        correctAnswer: resolvedAnswer,
+        marks,
+      },
+      error: null,
+    };
   } else if (type === 'msq') {
     const answers = correctAnswer.split(',').map((a) => a.trim()).filter(Boolean);
-    const allValid = answers.every((a) => options.includes(a));
-    if (!allValid || answers.length === 0) {
+    // Resolve each answer: support both full text and letter labels
+    const resolvedAnswers = answers.map((a) => {
+      if (options.includes(a)) return a;
+      const idx = a.toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < options.length && a.length === 1) return options[idx];
+      return a; // will fail validation below
+    });
+    const allValid = resolvedAnswers.every((a) => options.includes(a));
+    if (!allValid || resolvedAnswers.length === 0) {
       return {
         question: null,
-        error: `Row ${rowNum}: correctAnswer for MSQ must be comma-separated values from the options: ${options.join(' | ')}`,
+        error: `Row ${rowNum}: correctAnswer for MSQ must be comma-separated options or letters (A-${String.fromCharCode(65 + options.length - 1)}).`,
       };
     }
+    // Use resolved answers
+    return {
+      question: {
+        questionText,
+        type,
+        options,
+        correctAnswer: resolvedAnswers.join(','),
+        marks,
+      },
+      error: null,
+    };
   }
 
+  // Fallback for any other type (shouldn't reach here with current types)
   return {
     question: {
       questionText,
