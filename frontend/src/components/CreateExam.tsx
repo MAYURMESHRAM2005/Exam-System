@@ -180,7 +180,7 @@ const CSV_HEADERS = ['questionText', 'type', 'optionA', 'optionB', 'optionC', 'o
 const VALID_TYPES = ['mcq', 'msq', 'truefalse', 'descriptive', 'coding'];
 
 /** Parse a single CSV line respecting quoted fields */
-function parseCsvLine(line: string): string[] {
+function parseCsvLine(line: string, delimiter: string = ','): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -201,7 +201,7 @@ function parseCsvLine(line: string): string[] {
     } else {
       if (ch === '"') {
         inQuotes = true;
-      } else if (ch === ',') {
+      } else if (ch === delimiter) {
         result.push(current.trim());
         current = '';
       } else {
@@ -213,13 +213,30 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
+/** Detect CSV delimiter by checking the header line */
+function detectDelimiter(firstLine: string): string {
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  // Pick the delimiter that appears most often
+  if (tabCount > commaCount && tabCount > semicolonCount) return '\t';
+  if (semicolonCount > commaCount) return ';';
+  return ',';
+}
+
 /** Parse raw CSV text into rows of trimmed cell values */
 function parseCsvText(text: string): string[][] {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-  return lines
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-    .map((l) => parseCsvLine(l));
+  // Strip BOM (Byte Order Mark) that Excel/Windows adds to CSV files
+  const clean = text.replace(/^\uFEFF/, '');
+  const lines = clean.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const nonEmpty = lines.map((l) => l.trim()).filter((l) => l.length > 0);
+
+  if (nonEmpty.length === 0) return [];
+
+  // Auto-detect delimiter from header line
+  const delimiter = detectDelimiter(nonEmpty[0]);
+
+  return nonEmpty.map((l) => parseCsvLine(l, delimiter));
 }
 
 /** Validate a single row and return a QuestionDraft or an error string */
@@ -362,17 +379,24 @@ const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
       const headerRow = rows[0];
       const headerMap: Record<string, number> = {};
       headerRow.forEach((h, i) => {
-        headerMap[h.toLowerCase().trim()] = i;
+        // Strip BOM, whitespace, and lowercase for robust matching
+        const clean = h.replace(/^\uFEFF/, '').trim().toLowerCase();
+        if (clean) headerMap[clean] = i;
       });
 
       // Validate required headers
       const requiredHeaders = ['questiontext', 'type', 'correctanswer', 'marks'];
       const missingHeaders = requiredHeaders.filter((h) => !(h in headerMap));
       if (missingHeaders.length > 0) {
+        const detectedHeaders = headerRow.map((h) => h.replace(/^\uFEFF/, '').trim()).join(', ');
         setCsvImportResult({
           successCount: 0,
           errorCount: 0,
-          errors: [`Missing required columns: ${missingHeaders.join(', ')}. Expected headers: ${CSV_HEADERS.join(', ')}`],
+          errors: [
+            `Missing required columns: ${missingHeaders.join(', ')}.`,
+            `Expected: ${CSV_HEADERS.join(', ')}`,
+            `Detected headers: ${detectedHeaders || '(none)'}`,
+          ],
           questions: [],
         });
         return;
