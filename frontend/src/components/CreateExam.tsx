@@ -594,8 +594,8 @@ const handlePublish = async () => {
           onMicrophoneDisabled: examData.autoTerminateOnMicDisabled,
         },
 
-        // ✅ SAFE QUESTIONS
-        questions: questions?.length ? questions : [],
+        // ✅ SAFE QUESTIONS — filter out any empty/blank questions
+        questions: questions?.filter((q) => q.questionText && q.questionText.trim().length > 0) || [],
       }),
     });
 
