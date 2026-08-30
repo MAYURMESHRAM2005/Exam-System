@@ -137,13 +137,23 @@ exports.generateQuestions = asyncHandler(async (req, res) => {
   const marks = Math.max(parseInt(marksPerQuestion, 10) || 5, 1);
 
   // --- AI provider configuration ---
-  const apiKey = process.env.OPENAI_API_KEY;
-  const apiBase = process.env.OPENAI_API_BASE || "https://api.openai.com/v1";
-  const model = process.env.AI_MODEL || "gpt-4o-mini";
+  // Accept both OPENAI_API_KEY and GROQ_API_KEY (Groq is OpenAI-compatible)
+  const apiKey = process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY;
+  let apiBase = process.env.OPENAI_API_BASE;
+  const model = process.env.AI_MODEL || "llama-3.3-70b-versatile";
+
+  if (!apiBase) {
+    // Auto-detect base URL based on which key is set
+    if (process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY) {
+      apiBase = "https://api.groq.com/openai/v1";
+    } else {
+      apiBase = "https://api.openai.com/v1";
+    }
+  }
 
   if (!apiKey) {
     const error = new Error(
-      "AI question generation is not configured. Please set the OPENAI_API_KEY environment variable."
+      "AI question generation is not configured. Please set OPENAI_API_KEY or GROQ_API_KEY in your backend .env file."
     );
     error.statusCode = 503;
     throw error;
