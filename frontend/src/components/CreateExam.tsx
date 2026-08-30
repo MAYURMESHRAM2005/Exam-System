@@ -179,6 +179,40 @@ interface CsvImportResult {
 const CSV_HEADERS = ['questionText', 'type', 'optionA', 'optionB', 'optionC', 'optionD', 'correctAnswer', 'marks'];
 const VALID_TYPES = ['mcq', 'msq', 'truefalse', 'descriptive', 'coding'];
 
+/** Normalize common CSV type variants to the canonical type name */
+function normalizeQuestionType(raw: string): string {
+  const t = raw.toLowerCase().replace(/[^a-z0-9]/g, ''); // strip underscores, hyphens, spaces
+  // Map common variants
+  const TYPE_MAP: Record<string, string> = {
+    'truefalse': 'truefalse',
+    'truefalseq': 'truefalse',
+    'tf': 'truefalse',
+    'boolean': 'truefalse',
+    'yesno': 'truefalse',
+    'mcq': 'mcq',
+    'multiplechoice': 'mcq',
+    'multiplechoicequestion': 'mcq',
+    'singlechoice': 'mcq',
+    'msq': 'msq',
+    'multipleselect': 'msq',
+    'multipleselectquestion': 'msq',
+    'multi': 'msq',
+    'checkbox': 'msq',
+    'descriptive': 'descriptive',
+    'shortanswer': 'descriptive',
+    'short': 'descriptive',
+    'long': 'descriptive',
+    'essay': 'descriptive',
+    'text': 'descriptive',
+    'open': 'descriptive',
+    'coding': 'coding',
+    'programming': 'coding',
+    'code': 'coding',
+    'implementation': 'coding',
+  };
+  return TYPE_MAP[t] || raw.toLowerCase().trim(); // return raw if no match (will fail VALID_TYPES check below)
+}
+
 /** Parse a single CSV line respecting quoted fields */
 function parseCsvLine(line: string, delimiter: string = ','): string[] {
   const result: string[] = [];
@@ -253,7 +287,7 @@ function validateCsvRow(
   };
 
   const questionText = get('questionText');
-  const type = (get('type') || 'mcq').toLowerCase().trim();
+  const type = normalizeQuestionType(get('type') || 'mcq');
   const optionA = get('optionA');
   const optionB = get('optionB');
   const optionC = get('optionC');
@@ -268,7 +302,7 @@ function validateCsvRow(
   if (!VALID_TYPES.includes(type)) {
     return {
       question: null,
-      error: `Row ${rowNum}: invalid type "${type}". Must be one of: ${VALID_TYPES.join(', ')}`,
+      error: `Row ${rowNum}: invalid type "${get('type')}". Accepted types: mcq, msq, truefalse (or true_false, T/F), descriptive, coding`,
     };
   }
 
