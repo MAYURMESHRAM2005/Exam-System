@@ -313,14 +313,14 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Instructor Dashboard</h2>
-            <p className="text-slate-600">Manage exams, monitor students, and analyze performance</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">Instructor Dashboard</h2>
+            <p className="text-sm sm:text-base text-slate-600">Manage exams, monitor students, and analyze performance</p>
           </div>
           <button
             onClick={onCreateExam}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all min-h-[44px]"
           >
             <Plus className="w-5 h-5" />
             Create New Exam
@@ -334,7 +334,7 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600">Total Exams</span>
@@ -379,23 +379,25 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
           <div className="lg:col-span-2 space-y-8">
             {/* Exams List */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-              <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-slate-900">All Exams</h3>
+              <div className="p-4 sm:p-6 border-b border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900">All Exams</h3>
 
-                <div className="flex gap-2">
-                  {(['all', 'live', 'scheduled', 'completed'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
-                        activeTab === tab
-                          ? "text-indigo-600 bg-indigo-50"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
+                  <div className="flex gap-1 sm:gap-2 overflow-x-auto hide-scrollbar">
+                    {(['all', 'live', 'scheduled', 'completed'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap min-h-[36px] ${
+                          activeTab === tab
+                            ? "text-indigo-600 bg-indigo-50"
+                            : "text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="p-6 space-y-4">
@@ -463,19 +465,19 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
                         </div>
                       </div>
 
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-2 sm:gap-3">
                         {status === 'live' && (
                           <button
                             onClick={() => onMonitorExam(exam._id)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                            className="flex-1 min-w-[100px] flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors text-sm min-h-[40px]"
                           >
                             <Eye className="w-4 h-4" />
-                            Monitor Live
+                            Monitor
                           </button>
                         )}
                         <button
                           onClick={() => onEditExam(exam._id)}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                          className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors text-sm min-h-[40px]"
                         >
                           <Edit className="w-4 h-4" />
                           Edit
@@ -486,14 +488,14 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
                             setResultsFilters(cleared);
                             openResultsModal(exam, 'latest', cleared);
                           }}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                          className="flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors text-sm min-h-[40px]"
                         >
-                          View Results
+                          Results
                         </button>
                         <ExportMenu examId={exam._id} examTitle={exam.title} />
                         <button
                           onClick={() => openViolationsModal(exam)}
-                          className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                          className="flex items-center justify-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors min-h-[40px]"
                           title="View violations"
                         >
                           <AlertTriangle className="w-4 h-4" />
@@ -501,7 +503,7 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
                         <button
                           onClick={() => openDeleteModal(exam)}
                           title="Delete Exam"
-                          className="flex items-center justify-center px-4 py-2 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors"
+                          className="flex items-center justify-center px-3 py-2 border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors min-h-[40px]"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -745,8 +747,8 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
               )}
 
               {!resultsLoading && !resultsError && resultsData && resultsData.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="table-scroll">
+                  <table className="w-full text-sm min-w-[700px]">
                     <thead>
                       <tr className="text-left text-slate-500 border-b border-slate-200">
                         <th className="py-2 pr-4">Student</th>
@@ -894,8 +896,8 @@ export function InstructorDashboard({ userName, avatarUrl, onCreateExam, onEditE
                 }
 
                 return (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                  <div className="table-scroll">
+                    <table className="w-full text-sm min-w-[600px]">
                       <thead>
                         <tr className="text-left text-slate-500 border-b border-slate-200">
                           <th className="py-2 pr-4">Student</th>

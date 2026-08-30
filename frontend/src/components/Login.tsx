@@ -156,7 +156,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4 safe-top safe-bottom">
       <div className="w-full max-w-md">
 
         {/* Logo */}
@@ -171,7 +171,7 @@ export function Login({ onLogin, onRegistered, onForgotPassword }: LoginProps) {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 sm:p-8">
           <h2 className="text-2xl font-semibold text-slate-900 mb-6">
             {isRegister ? 'Create Student Account' : 'Welcome Back'}
           </h2>

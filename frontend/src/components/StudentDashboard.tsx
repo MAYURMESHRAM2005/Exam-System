@@ -161,9 +161,9 @@ export function StudentDashboard({ userName, avatarUrl, onStartExam, onViewResul
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Welcome back, {userName || 'Student'}!</h2>
-          <p className="text-slate-600">Here's your exam schedule and performance overview</p>
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">Welcome back, {userName || 'Student'}!</h2>
+          <p className="text-sm sm:text-base text-slate-600">Here's your exam schedule and performance overview</p>
         </div>
 
         {!loading && error && (
@@ -174,7 +174,7 @@ export function StudentDashboard({ userName, avatarUrl, onStartExam, onViewResul
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600">Upcoming Exams</span>
@@ -270,7 +270,7 @@ export function StudentDashboard({ userName, avatarUrl, onStartExam, onViewResul
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-4 mb-4 text-sm text-slate-600">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         <span>{formatDate(exam.date)}</span>
@@ -339,30 +339,29 @@ export function StudentDashboard({ userName, avatarUrl, onStartExam, onViewResul
                     {results.slice(0, 5).map((r) => (
                       <div
                         key={r.resultId}
-                        className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-slate-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all gap-3"
                       >
-                        <div className="flex-1">
-                          <h4 className="font-medium text-slate-900 mb-1">{r.examTitle}</h4>
-                          <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-slate-900 mb-1 truncate">{r.examTitle}</h4>
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-slate-600">
                             <span>{r.courseCode}</span>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>{formatDate(r.submittedAt)}</span>
-                            <span>•</span>
                             <span className={r.passed ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
                               {r.passed ? 'Passed' : 'Failed'}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
                           <div className="text-right">
-                            <p className={`text-2xl font-bold ${r.passed ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-xl sm:text-2xl font-bold ${r.passed ? 'text-green-600' : 'text-red-600'}`}>
                               {r.obtainedMarks}
                             </p>
                             <p className="text-xs text-slate-500">out of {r.totalMarks} ({r.percentage}%)</p>
                           </div>
                           <button
                             onClick={() => onViewResults(r.resultId)}
-                            className="px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors min-h-[40px]"
                           >
                             View Details
                           </button>

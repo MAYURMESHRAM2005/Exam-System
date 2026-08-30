@@ -759,25 +759,25 @@ const handlePublish = async () => {
         {!loadingExisting && (
         <>
         {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center justify-between overflow-x-auto hide-scrollbar">
             {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className="flex items-center">
+              <div key={step.id} className="flex items-center flex-1 min-w-0">
+                <div className="flex items-center flex-shrink-0">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
+                    className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 transition-all ${
                       currentStep >= step.id
                         ? 'bg-indigo-600 border-indigo-600 text-white'
                         : 'bg-white border-slate-300 text-slate-400'
                     }`}
                   >
                     {currentStep > step.id ? (
-                      <Check className="w-6 h-6" />
+                      <Check className="w-4 h-4 sm:w-6 sm:h-6" />
                     ) : (
-                      <step.icon className="w-6 h-6" />
+                      <step.icon className="w-4 h-4 sm:w-6 sm:h-6" />
                     )}
                   </div>
-                  <div className="ml-3">
+                  <div className="ml-2 sm:ml-3 hidden sm:block">
                     <p
                       className={`text-sm font-medium ${
                         currentStep >= step.id ? 'text-slate-900' : 'text-slate-400'
@@ -790,7 +790,7 @@ const handlePublish = async () => {
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={`flex-1 h-0.5 mx-4 ${
+                    className={`flex-1 h-0.5 mx-1 sm:mx-4 ${
                       currentStep > step.id ? 'bg-indigo-600' : 'bg-slate-300'
                     }`}
                   ></div>
@@ -967,39 +967,35 @@ const handlePublish = async () => {
     </div>
   )}
   {questions.map((q, index) => (
-    <div key={index} className="border border-slate-200 rounded-lg p-5">
-      
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
+    <div key={index} className="border border-slate-200 rounded-lg p-5">          <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0">
 
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
             <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">
-              Question {index + 1}
+              Q{index + 1}
             </span>
 
-            {/* SAME STYLE SELECT */}
             <select
               value={q.type}
               onChange={(e) =>
                 handleQuestionChange(index, "type", e.target.value)
               }
-              className="px-3 py-1 border border-slate-300 rounded text-sm"
+              className="px-2 sm:px-3 py-1 border border-slate-300 rounded text-xs sm:text-sm min-h-[36px]"
             >
-              <option value="mcq">Multiple Choice (single answer)</option>
-              <option value="msq">Multiple Select (multiple answers)</option>
+              <option value="mcq">MCQ (single)</option>
+              <option value="msq">MSQ (multiple)</option>
               <option value="truefalse">True/False</option>
               <option value="descriptive">Descriptive</option>
               <option value="coding">Coding</option>
             </select>
 
-            {/* SAME STYLE INPUT */}
             <input
               type="number"
               value={q.marks}
               onChange={(e) =>
                 handleQuestionChange(index, "marks", e.target.value)
               }
-              className="w-20 px-3 py-1 border border-slate-300 rounded text-sm"
+              className="w-16 sm:w-20 px-2 sm:px-3 py-1 border border-slate-300 rounded text-xs sm:text-sm min-h-[36px]"
             />
           </div>
 

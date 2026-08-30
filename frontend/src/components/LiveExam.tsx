@@ -35,10 +35,77 @@ interface Question {
 const AUTOSAVE_DEBOUNCE_MS = 700;
 const HEARTBEAT_INTERVAL_MS = 30000;
 
+/** Shared sidebar content used by both the mobile overlay and desktop sidebar */
+function SidebarContent({
+  proctorSessionId,
+  answeredCount,
+  questions,
+  currentQuestion,
+  setCurrentQuestion,
+  answers,
+  markedForReview,
+  onSubmit,
+}: {
+  proctorSessionId: string | null;
+  answeredCount: number;
+  questions: Question[];
+  currentQuestion: number;
+  setCurrentQuestion: (i: number) => void;
+  answers: Record<string, string>;
+  markedForReview: Record<string, boolean>;
+  onSubmit: () => void;
+}) {
+  return (
+    <>
+      <div className="mb-6">
+        <FaceDetectionMonitor sessionId={proctorSessionId} />
+      </div>
+
+      <p className="text-sm mb-2">
+        Progress: {answeredCount}/{questions.length}
+      </p>
+      <div className="w-full bg-slate-200 h-2 rounded-full mb-4">
+        <div
+          className="bg-indigo-600 h-2 rounded-full"
+          style={{ width: `${(answeredCount / questions.length) * 100}%` }}
+        />
+      </div>
+
+      <div className="grid grid-cols-5 gap-2">
+        {questions.map((q, i) => (
+          <button
+            key={q._id}
+            onClick={() => setCurrentQuestion(i)}
+            className={`p-2 rounded relative text-sm ${
+              i === currentQuestion
+                ? "bg-indigo-600 text-white"
+                : markedForReview[q._id]
+                ? "bg-orange-100 text-orange-700"
+                : answers[q._id]
+                ? "bg-green-100 text-green-700"
+                : "bg-slate-100"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+
+      <button
+        onClick={onSubmit}
+        className="w-full mt-6 bg-green-600 text-white py-3 rounded-lg flex items-center justify-center gap-2"
+      >
+        <Flag /> Submit Exam
+      </button>
+    </>
+  );
+}
+
 export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [examTitle, setExamTitle] = useState("");
   const [courseCode, setCourseCode] = useState("");
@@ -427,29 +494,29 @@ export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-          <div>
-            <h1 className="font-semibold">{examTitle}</h1>
-            <p className="text-xs text-slate-600">{courseCode}</p>
+      <header className="bg-white border-b sticky top-0 z-20 safe-top">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex justify-between items-center">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-semibold text-sm sm:text-base truncate">{examTitle}</h1>
+            <p className="text-xs text-slate-600 truncate">{courseCode}</p>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             {security.isOnline ? (
-              <div className="flex items-center gap-2 text-green-600 text-sm">
+              <div className="hidden sm:flex items-center gap-2 text-green-600 text-sm">
                 <Wifi className="w-4 h-4" />
                 Connected
               </div>
             ) : (
               <div className="flex items-center gap-2 text-red-600 text-sm">
                 <WifiOff className="w-4 h-4" />
-                Offline
+                <span className="hidden sm:inline">Offline</span>
               </div>
             )}
 
             {security.violationCount > 0 && (
               <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium ${
                   security.flagged
                     ? "bg-red-100 text-red-700"
                     : "bg-amber-100 text-amber-700"
@@ -457,23 +524,24 @@ export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) 
                 title="Security violations detected during this exam"
               >
                 <ShieldAlert className="w-4 h-4" />
-                {security.violationCount} violation{security.violationCount === 1 ? "" : "s"}
+                <span className="hidden sm:inline">{security.violationCount} violation{security.violationCount === 1 ? "" : "s"}</span>
+                <span className="sm:hidden">{security.violationCount}</span>
               </div>
             )}
 
             {autoSaved && (
-              <div className="flex items-center gap-1 text-green-600">
+              <div className="hidden sm:flex items-center gap-1 text-green-600">
                 <Check className="w-4 h-4" /> Saved
               </div>
             )}
 
             <div
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg ${
                 timeLeft < 600 ? "bg-red-100 text-red-700" : "bg-slate-100"
               }`}
             >
-              <Clock className="w-5 h-5" />
-              <span className="font-semibold">{formatTime(timeLeft)}</span>
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="font-semibold text-sm sm:text-base">{formatTime(timeLeft)}</span>
             </div>
           </div>
         </div>
@@ -511,10 +579,10 @@ export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) 
         </div>
       )}
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 flex-col lg:flex-row">
         {/* Main */}
-        <div className="flex-1 p-8">
-          <div className="bg-white border rounded-xl p-8 mb-6">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="bg-white border rounded-xl p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
             <div className="flex justify-between mb-4">
               <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm">
                 Question {currentQuestion + 1} / {questions.length}
@@ -533,7 +601,7 @@ export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) 
               </div>
             </div>
 
-            <h2 className="text-xl mb-6">{question.questionText}</h2>
+            <h2 className="text-base sm:text-xl mb-4 sm:mb-6">{question.questionText}</h2>
 
             {question.type === "mcq" ? (
               <div className="space-y-3">
@@ -631,89 +699,94 @@ export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) 
               className="flex items-center gap-2 text-slate-600 disabled:opacity-40"
             >
               <ChevronLeft /> Previous
-            </button>
-
-            <button
-              onClick={() => toggleMarkForReview(question._id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm ${
-                markedForReview[question._id]
-                  ? "bg-orange-100 text-orange-700 border-orange-300"
-                  : "text-slate-600 border-slate-200"
-              }`}
-            >
-              <Flag className="w-4 h-4" />
-              {markedForReview[question._id] ? "Marked for Review" : "Mark for Review"}
-            </button>
-
-            {currentQuestion === questions.length - 1 ? (
-              <button
-                onClick={() => setShowSubmitModal(true)}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg flex items-center gap-2"
+            </button>              <button
+                onClick={() => toggleMarkForReview(question._id)}
+                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg border text-xs sm:text-sm ${
+                  markedForReview[question._id]
+                    ? "bg-orange-100 text-orange-700 border-orange-300"
+                    : "text-slate-600 border-slate-200"
+                }`}
               >
-                Submit Exam <Flag />
+                <Flag className="w-4 h-4" />
+                <span className="hidden sm:inline">{markedForReview[question._id] ? "Marked for Review" : "Mark for Review"}</span>
+                <span className="sm:hidden">{markedForReview[question._id] ? "Marked" : "Review"}</span>
               </button>
-            ) : (
-              <button
-                onClick={() => setCurrentQuestion((q) => q + 1)}
-                className="bg-indigo-600 text-white px-6 py-3 rounded-lg flex items-center gap-2"
-              >
-                Next <ChevronRight />
-              </button>
-            )}
+
+              {currentQuestion === questions.length - 1 ? (
+                <button
+                  onClick={() => setShowSubmitModal(true)}
+                  className="bg-green-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center gap-2 text-sm sm:text-base"
+                >
+                  Submit Exam <Flag />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentQuestion((q) => q + 1)}
+                  className="bg-indigo-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg flex items-center gap-2 text-sm sm:text-base"
+                >
+                  Next <ChevronRight />
+                </button>
+              )}
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="w-80 bg-white border-l p-6">
-          <div className="mb-6">
-            <FaceDetectionMonitor sessionId={proctorSessionId} />
-          </div>
+        {/* Sidebar — Desktop: always visible, Mobile: toggle button */}
+        {/* Mobile toggle button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="lg:hidden fixed bottom-4 right-4 z-30 bg-indigo-600 text-white p-3 rounded-full shadow-lg"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
 
-          <p className="text-sm mb-2">
-            Progress: {answeredCount}/{questions.length}
-          </p>
-          <div className="w-full bg-slate-200 h-2 rounded-full mb-4">
-            <div
-              className="bg-indigo-600 h-2 rounded-full"
-              style={{
-                width: `${(answeredCount / questions.length) * 100}%`,
-              }}
-            />
+        {/* Mobile overlay sidebar */}
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 z-20">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} />
+            <div className="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-xl p-6 overflow-y-auto animate-fadeIn">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-900">Exam Panel</h3>
+                <button onClick={() => setSidebarOpen(false)} className="text-slate-400 hover:text-slate-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <SidebarContent
+                proctorSessionId={proctorSessionId}
+                answeredCount={answeredCount}
+                questions={questions}
+                currentQuestion={currentQuestion}
+                setCurrentQuestion={(i) => { setCurrentQuestion(i); setSidebarOpen(false); }}
+                answers={answers}
+                markedForReview={markedForReview}
+                onSubmit={() => setShowSubmitModal(true)}
+              />
+            </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-5 gap-2">
-            {questions.map((q, i) => (
-              <button
-                key={q._id}
-                onClick={() => setCurrentQuestion(i)}
-                className={`p-2 rounded relative ${
-                  i === currentQuestion
-                    ? "bg-indigo-600 text-white"
-                    : markedForReview[q._id]
-                    ? "bg-orange-100 text-orange-700"
-                    : answers[q._id]
-                    ? "bg-green-100 text-green-700"
-                    : "bg-slate-100"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setShowSubmitModal(true)}
-            className="w-full mt-6 bg-green-600 text-white py-3 rounded-lg flex items-center justify-center gap-2"
-          >
-            <Flag /> Submit Exam
-          </button>
+        {/* Desktop sidebar */}
+        <div className="hidden lg:block w-80 bg-white border-l p-6">
+          <SidebarContent
+            proctorSessionId={proctorSessionId}
+            answeredCount={answeredCount}
+            questions={questions}
+            currentQuestion={currentQuestion}
+            setCurrentQuestion={setCurrentQuestion}
+            answers={answers}
+            markedForReview={markedForReview}
+            onSubmit={() => setShowSubmitModal(true)}
+          />
         </div>
       </div>
 
       {/* Submit Modal */}
       {showSubmitModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full safe-top safe-bottom">
             <h3 className="text-xl font-semibold mb-2">Submit Exam?</h3>
             <p className="text-slate-600 mb-4">
               Answered {answeredCount} / {questions.length} questions
@@ -729,14 +802,14 @@ export function LiveExam({ examId, proctorSessionId, onSubmit }: LiveExamProps) 
               <button
                 onClick={() => setShowSubmitModal(false)}
                 disabled={submitting}
-                className="flex-1 border py-2 rounded-lg disabled:opacity-50"
+                className="flex-1 border py-3 rounded-lg disabled:opacity-50 min-h-[44px]"
               >
                 Review
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 bg-green-600 text-white py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 bg-green-600 text-white py-3 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {submitting ? "Submitting..." : "Submit"}

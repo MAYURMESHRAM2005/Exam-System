@@ -373,15 +373,15 @@ export function LiveProctoring({ examId, onBack }: LiveProctoringProps) {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <button onClick={onBack} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <button onClick={onBack} className="flex items-center gap-1 sm:gap-2 text-slate-600 hover:text-slate-900 flex-shrink-0">
                 <ArrowLeft className="w-5 h-5" />
-                <span>Back</span>
+                <span className="hidden sm:inline">Back</span>
               </button>
-              <div className="h-8 w-px bg-slate-300"></div>
-              <div>
-                <h1 className="font-semibold text-slate-900">Live Proctoring Monitor</h1>
-                <p className="text-xs text-slate-600">{examMeta?.title} {examMeta?.courseCode && `· ${examMeta.courseCode}`}</p>
+              <div className="h-8 w-px bg-slate-300 hidden sm:block"></div>
+              <div className="min-w-0">
+                <h1 className="font-semibold text-slate-900 text-sm sm:text-base truncate">Live Proctoring</h1>
+                <p className="text-xs text-slate-600 truncate">{examMeta?.title} {examMeta?.courseCode && `· ${examMeta.courseCode}`}</p>
               </div>
             </div>
 
@@ -410,7 +410,7 @@ export function LiveProctoring({ examId, onBack }: LiveProctoringProps) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-slate-600">Total Students</span>
@@ -453,14 +453,14 @@ export function LiveProctoring({ examId, onBack }: LiveProctoringProps) {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
               <div className="p-6 border-b border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-slate-900">Student Monitoring</h2>
-                  <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <h2 className="text-lg sm:text-xl font-semibold text-slate-900">Student Monitoring</h2>
+                  <div className="flex gap-1 sm:gap-2">
                     {(['all', 'active', 'flagged'] as const).map((status) => (
                       <button
                         key={status}
                         onClick={() => setFilterStatus(status)}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-lg capitalize ${
+                        className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg capitalize min-h-[36px] ${
                           filterStatus === status
                             ? 'bg-indigo-100 text-indigo-700'
                             : 'text-slate-600 hover:bg-slate-100'
@@ -487,7 +487,7 @@ export function LiveProctoring({ examId, onBack }: LiveProctoringProps) {
                 {filteredSessions.length === 0 ? (
                   <p className="text-center text-slate-500 py-10">No students match this filter yet.</p>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                     {filteredSessions.map((s) => {
                       const progressPct = s.progress.total > 0 ? Math.round((s.progress.answered / s.progress.total) * 100) : 0;
                       return (
