@@ -127,7 +127,7 @@ httpServer.listen(PORT, () => {
   // Log AI config status for debugging
   if (process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY) {
     const provider = process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY ? "Groq" : "OpenAI";
-    console.log(`[AI] Question generation enabled via ${provider} (model: ${process.env.AI_MODEL || 'llama-3.3-70b-versatile'})`);
+    console.log(`[AI] Question generation enabled via ${provider} (model: ${process.env.AI_MODEL || (provider === 'Groq' ? 'qwen/qwen3.8-27b' : 'gpt-4o-mini')})`);
   } else {
     console.log("[AI] Question generation DISABLED — set GROQ_API_KEY or OPENAI_API_KEY in .env to enable");
   }

@@ -138,13 +138,15 @@ exports.generateQuestions = asyncHandler(async (req, res) => {
 
   // --- AI provider configuration ---
   // Accept both OPENAI_API_KEY and GROQ_API_KEY (Groq is OpenAI-compatible)
-  const apiKey = process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY;
+  const apiKey = (process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || '').trim();
   let apiBase = process.env.OPENAI_API_BASE;
-  const model = process.env.AI_MODEL || "llama-3.3-70b-versatile";
+  const isGroq = !!(process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY);
+  const defaultModel = isGroq ? "qwen/qwen3.8-27b" : "gpt-4o-mini";
+  const model = process.env.AI_MODEL || defaultModel;
 
   if (!apiBase) {
     // Auto-detect base URL based on which key is set
-    if (process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY) {
+    if (isGroq) {
       apiBase = "https://api.groq.com/openai/v1";
     } else {
       apiBase = "https://api.openai.com/v1";
